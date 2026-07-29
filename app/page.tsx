@@ -224,7 +224,7 @@ export default function Home() {
               <div className="goal-meta">
                 <span>月保本营业额 <b>{compactMoney(breakEven)}</b></span>
                 <span>月目标营业额 <b>{compactMoney(monthlyGoal)}</b></span>
-                <span>目标净利润 <b>{compactMoney(targetProfit)}</b></span>
+                <span>月目标净利润 <b>{compactMoney(targetProfit)}</b></span>
               </div>
             </article>
 
