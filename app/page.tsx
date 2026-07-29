@@ -222,8 +222,9 @@ export default function Home() {
               <p>{compactMoney(monthlyGoal)} ÷ {days} 个营业日</p>
               <div className="goal-divider" />
               <div className="goal-meta">
-                <span>月目标 <b>{compactMoney(monthlyGoal)}</b></span>
-                <span>目标净赚 <b>{compactMoney(targetProfit)}</b></span>
+                <span>月保本营业额 <b>{compactMoney(breakEven)}</b></span>
+                <span>月目标营业额 <b>{compactMoney(monthlyGoal)}</b></span>
+                <span>目标净利润 <b>{compactMoney(targetProfit)}</b></span>
               </div>
             </article>
 

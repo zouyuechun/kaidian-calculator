@@ -71,9 +71,11 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .goal-card > strong { display: block; margin-top: 11px; font-size: 43px; line-height: 1.1; letter-spacing: -.06em; }
 .goal-card > p { margin: 3px 0 0; color: #aebfba; font-size: 11px; }
 .goal-divider { height: 1px; margin: 17px 0 12px; background: rgba(255, 255, 255, .11); }
-.goal-meta { display: grid; grid-template-columns: 1fr 1fr; color: #aebfba; font-size: 10px; }
+.goal-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); color: #aebfba; font-size: 9px; }
+.goal-meta span { min-width: 0; }
+.goal-meta span:nth-child(2) { padding-inline: 8px; border-inline: 1px solid rgba(255, 255, 255, .1); text-align: center; }
 .goal-meta span:last-child { text-align: right; }
-.goal-meta b { display: block; margin-top: 3px; color: white; font-size: 12px; }
+.goal-meta b { display: block; overflow: hidden; margin-top: 4px; color: white; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
 .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .metric-grid article { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255, 255, 255, .85); }
