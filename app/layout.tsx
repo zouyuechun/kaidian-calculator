@@ -9,13 +9,13 @@ export const metadata: Metadata = {
     title: "开店账本｜把账算明白，生意才有数",
     description: "实体店盈亏平衡、目标营业额与商品定价计算器",
     type: "website",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "开店账本" }],
+    images: [{ url: "/og-mobile.png", width: 1536, height: 1024, alt: "开店账本手机应用" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "开店账本｜把账算明白，生意才有数",
     description: "实体店盈亏平衡、目标营业额与商品定价计算器",
-    images: ["/og.png"],
+    images: ["/og-mobile.png"],
   },
 };
 

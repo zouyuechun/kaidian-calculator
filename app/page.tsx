@@ -3,6 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 
 type CostItem = { id: number; name: string; amount: number };
+type AppTab = "home" | "costs" | "pricing" | "formula";
+type PricingMode = "margin" | "quote";
+
+const tabFromHash = (hash: string): AppTab => {
+  if (hash === "#costs" || hash === "#calculator") return "costs";
+  if (hash === "#pricing") return "pricing";
+  if (hash === "#formula") return "formula";
+  return "home";
+};
 
 const starterCosts: CostItem[] = [
   { id: 1, name: "店铺租金", amount: 200000 },
@@ -57,7 +66,7 @@ function NumberField({
           max={max}
           step="any"
           value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(event) => onChange(Number(event.target.value))}
         />
         <span>{suffix}</span>
       </span>
@@ -67,6 +76,8 @@ function NumberField({
 }
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<AppTab>("home");
+  const [pricingMode, setPricingMode] = useState<PricingMode>("quote");
   const [costs, setCosts] = useState<CostItem[]>(starterCosts);
   const [grossMargin, setGrossMargin] = useState(33);
   const [days, setDays] = useState(30);
@@ -81,30 +92,46 @@ export default function Home() {
 
   useEffect(() => {
     const saved = localStorage.getItem("kaidian-calculator");
-    if (!saved) {
-      setLoaded(true);
-      return;
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (Array.isArray(data.costs)) setCosts(data.costs);
+        if (Number.isFinite(data.grossMargin)) setGrossMargin(data.grossMargin);
+        if (Number.isFinite(data.days)) setDays(data.days);
+        if (Number.isFinite(data.targetProfit)) setTargetProfit(data.targetProfit);
+        if (Number.isFinite(data.productCost)) setProductCost(data.productCost);
+        if (Number.isFinite(data.sellingPrice)) setSellingPrice(data.sellingPrice);
+        if (Number.isFinite(data.targetMargin)) setTargetMargin(data.targetMargin);
+        if (Number.isFinite(data.salesExpense)) setSalesExpense(data.salesExpense);
+        if (Number.isFinite(data.taxRate)) setTaxRate(data.taxRate);
+      } catch {
+        // Invalid local data should not prevent the calculator from opening.
+      }
     }
-    try {
-      const data = JSON.parse(saved);
-      if (Array.isArray(data.costs)) setCosts(data.costs);
-      if (Number.isFinite(data.grossMargin)) setGrossMargin(data.grossMargin);
-      if (Number.isFinite(data.days)) setDays(data.days);
-      if (Number.isFinite(data.targetProfit)) setTargetProfit(data.targetProfit);
-    } catch {
-      // Ignore invalid local data and keep the useful defaults.
-    } finally {
-      setLoaded(true);
-    }
+    setLoaded(true);
+    const syncTab = () => setActiveTab(tabFromHash(window.location.hash));
+    syncTab();
+    window.addEventListener("popstate", syncTab);
+    return () => window.removeEventListener("popstate", syncTab);
   }, []);
 
   useEffect(() => {
     if (!loaded) return;
     localStorage.setItem(
       "kaidian-calculator",
-      JSON.stringify({ costs, grossMargin, days, targetProfit }),
+      JSON.stringify({
+        costs,
+        grossMargin,
+        days,
+        targetProfit,
+        productCost,
+        sellingPrice,
+        targetMargin,
+        salesExpense,
+        taxRate,
+      }),
     );
-  }, [costs, grossMargin, days, targetProfit, loaded]);
+  }, [costs, grossMargin, days, targetProfit, productCost, sellingPrice, targetMargin, salesExpense, taxRate, loaded]);
 
   const fixedCost = useMemo(
     () => costs.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
@@ -113,30 +140,31 @@ export default function Home() {
   const marginRate = grossMargin / 100;
   const breakEven = marginRate > 0 ? fixedCost / marginRate : 0;
   const dailyBreakEven = days > 0 ? breakEven / days : 0;
-  const targetRevenue =
-    marginRate > 0 ? (fixedCost + targetProfit) / marginRate : 0;
+  const targetRevenue = marginRate > 0 ? (fixedCost + targetProfit) / marginRate : 0;
   const dailyTarget = days > 0 ? targetRevenue / days : 0;
-  const actualMargin =
-    sellingPrice > 0 ? ((sellingPrice - productCost) / sellingPrice) * 100 : 0;
-  const suggestedPrice =
-    targetMargin < 100 ? productCost / (1 - targetMargin / 100) : 0;
+  const monthlyGoal = targetProfit > 0 ? targetRevenue : breakEven;
+  const dailyGoal = targetProfit > 0 ? dailyTarget : dailyBreakEven;
+  const actualMargin = sellingPrice > 0 ? ((sellingPrice - productCost) / sellingPrice) * 100 : 0;
+  const suggestedPrice = targetMargin < 100 ? productCost / (1 - targetMargin / 100) : 0;
   const profitPerItem = sellingPrice - productCost;
   const netMargin =
     sellingPrice > 0
-      ? ((sellingPrice - productCost - salesExpense * (1 - taxRate / 100)) /
-          sellingPrice) *
-        100
+      ? ((sellingPrice - productCost - salesExpense * (1 - taxRate / 100)) / sellingPrice) * 100
       : 0;
-
-  const updateCost = (id: number, patch: Partial<CostItem>) =>
-    setCosts((items) =>
-      items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    );
 
   const notify = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 1800);
   };
+
+  const goTo = (tab: AppTab) => {
+    setActiveTab(tab);
+    window.history.pushState(null, "", tab === "home" ? "#home" : `#${tab}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const updateCost = (id: number, patch: Partial<CostItem>) =>
+    setCosts((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
 
   const copySummary = async () => {
     const summary = `开店测算结果
@@ -147,293 +175,345 @@ export default function Home() {
 月目标利润：${money(targetProfit)}
 月目标营业额：${money(targetRevenue)}
 日目标营业额：${money(dailyTarget)}`;
-    await navigator.clipboard.writeText(summary);
-    notify("测算结果已复制");
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(summary);
+      notify("测算结果已复制");
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = summary;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      notify("测算结果已复制");
+    }
   };
 
   return (
-    <main>
-      <header className="topbar">
-        <a className="brand" href="#top" aria-label="开店账本首页">
+    <main className="mobile-app">
+      <header className="app-header">
+        <button className="brand" onClick={() => goTo("home")} aria-label="返回经营总览">
           <span className="brand-mark">算</span>
           <span>开店账本</span>
-        </a>
-        <a className="formula-link" href="#formula">
-          公式说明
-        </a>
+        </button>
+        <span className="save-state"><i /> 数据已保存</span>
       </header>
 
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <span className="eyebrow">实体店经营测算工具</span>
-          <h1>
-            开店前，先把账
-            <br />
-            <em>算明白。</em>
-          </h1>
-          <p>
-            算清保本线、目标营业额和商品售价。
-            <br />
-            不凭感觉定价，让每一笔生意都有数。
-          </p>
-          <div className="hero-actions">
-            <a className="button primary" href="#calculator">
-              开始测算 <span>↓</span>
-            </a>
-            <span className="saved-note">
-              <i>✓</i> 数据自动保存在本机
-            </span>
-          </div>
-        </div>
-        <div className="hero-result" aria-label="今日经营目标">
-          <div className="result-head">
-            <span>今日经营目标</span>
-            <span className="live"><i /> 实时测算</span>
-          </div>
-          <span className="result-kicker">每天至少要做到</span>
-          <strong>{compactMoney(targetProfit > 0 ? dailyTarget : dailyBreakEven)}</strong>
-          <span className="result-unit">营业额 / 天</span>
-          <div className="progress-track">
-            <span style={{ width: `${Math.min(100, Math.max(8, grossMargin))}%` }} />
-          </div>
-          <div className="result-foot">
-            <span>月固定成本 <b>{compactMoney(fixedCost)}</b></span>
-            <span>综合毛利率 <b>{grossMargin}%</b></span>
-          </div>
-          <p>达到这条线，店铺才开始真正赚钱</p>
-        </div>
-      </section>
-
-      <section className="calculator-section" id="calculator">
-        <div className="section-heading">
-          <span className="step">01</span>
-          <div>
-            <h2>先算清你的固定成本</h2>
-            <p>不管有没有生意，每个月都要支付的钱</p>
-          </div>
-        </div>
-
-        <div className="workspace">
-          <div className="cost-panel">
-            <div className="cost-list">
-              {costs.map((item) => (
-                <div className="cost-row" key={item.id}>
-                  <input
-                    className="cost-name"
-                    aria-label="成本名称"
-                    value={item.name}
-                    onChange={(e) => updateCost(item.id, { name: e.target.value })}
-                  />
-                  <span className="cost-amount">
-                    <span>¥</span>
-                    <input
-                      type="number"
-                      min="0"
-                      inputMode="decimal"
-                      aria-label={`${item.name}金额`}
-                      value={item.amount}
-                      onChange={(e) =>
-                        updateCost(item.id, { amount: Number(e.target.value) })
-                      }
-                    />
-                  </span>
-                  <button
-                    className="remove"
-                    aria-label={`删除${item.name}`}
-                    onClick={() =>
-                      setCosts((items) => items.filter((x) => x.id !== item.id))
-                    }
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+      <div className="app-content">
+        {activeTab === "home" && (
+          <section className="app-screen" aria-label="经营总览">
+            <div className="screen-intro home-intro">
+              <div>
+                <span className="screen-kicker">经营总览</span>
+                <h1>今天的账，算清楚了吗？</h1>
+              </div>
+              <span className="day-chip">按 {days} 天</span>
             </div>
-            <button
-              className="add-cost"
-              onClick={() =>
-                setCosts((items) => [
-                  ...items,
-                  { id: Date.now(), name: "新增固定支出", amount: 0 },
-                ])
-              }
-            >
-              ＋ 添加一项固定成本
-            </button>
-            <div className="total-row">
-              <span>每月固定成本合计</span>
+
+            <article className="goal-card">
+              <div className="goal-card-head">
+                <span>{targetProfit > 0 ? "今日销售任务" : "今日保本线"}</span>
+                <b><i /> 实时</b>
+              </div>
+              <strong>{compactMoney(dailyGoal)}</strong>
+              <p>{compactMoney(monthlyGoal)} ÷ {days} 个营业日</p>
+              <div className="goal-divider" />
+              <div className="goal-meta">
+                <span>月目标 <b>{compactMoney(monthlyGoal)}</b></span>
+                <span>目标净赚 <b>{compactMoney(targetProfit)}</b></span>
+              </div>
+            </article>
+
+            <div className="metric-grid">
+              <article>
+                <span className="metric-icon mint">本</span>
+                <div><small>月固定成本</small><strong>{compactMoney(fixedCost)}</strong></div>
+              </article>
+              <article>
+                <span className="metric-icon peach">率</span>
+                <div><small>综合毛利率</small><strong>{grossMargin}%</strong></div>
+              </article>
+              <article>
+                <span className="metric-icon mint">保</span>
+                <div><small>月保本营业额</small><strong>{compactMoney(breakEven)}</strong></div>
+              </article>
+              <article>
+                <span className="metric-icon peach">目</span>
+                <div><small>月目标营业额</small><strong>{compactMoney(targetRevenue)}</strong></div>
+              </article>
+            </div>
+
+            <article className="app-card parameter-card">
+              <div className="card-heading">
+                <div><span>经营参数</span><small>修改后立即重新计算</small></div>
+                <span className="live-dot">LIVE</span>
+              </div>
+              <div className="home-fields">
+                <NumberField
+                  label="综合毛利率"
+                  value={grossMargin}
+                  onChange={setGrossMargin}
+                  suffix="%"
+                  min={0.01}
+                  max={99.99}
+                />
+                <NumberField
+                  label="营业天数"
+                  value={days}
+                  onChange={setDays}
+                  suffix="天"
+                  min={1}
+                  max={31}
+                />
+                <NumberField
+                  label="每月想净赚"
+                  value={targetProfit}
+                  onChange={setTargetProfit}
+                  suffix="元"
+                  min={0}
+                />
+              </div>
+            </article>
+
+            <div className="quick-grid" aria-label="快捷入口">
+              <button onClick={() => goTo("costs")}>
+                <span className="quick-icon">¥</span>
+                <span><b>固定成本</b><small>共 {costs.length} 项</small></span>
+                <i>›</i>
+              </button>
+              <button onClick={() => goTo("pricing")}>
+                <span className="quick-icon orange">%</span>
+                <span><b>商品定价</b><small>反推正确售价</small></span>
+                <i>›</i>
+              </button>
+            </div>
+
+            <button className="primary-action" onClick={copySummary}>复制完整测算结果</button>
+            <p className="safe-note">测算仅供经营参考 · 数据只保存在当前设备</p>
+          </section>
+        )}
+
+        {activeTab === "costs" && (
+          <section className="app-screen" aria-label="固定成本">
+            <div className="screen-intro">
+              <span className="screen-kicker">成本管理</span>
+              <h1>每月固定成本</h1>
+              <p>不管有没有生意，每个月都要支付的钱</p>
+            </div>
+
+            <article className="total-banner">
+              <span>当前合计</span>
               <strong>{money(fixedCost)}</strong>
-            </div>
-          </div>
+              <small>保本营业额 {compactMoney(breakEven)} / 月</small>
+            </article>
 
-          <div className="business-panel">
-            <div className="input-grid">
-              <NumberField
-                label="综合毛利率"
-                value={grossMargin}
-                onChange={setGrossMargin}
-                suffix="%"
-                min={0.01}
-                max={99.99}
-                hint="（售价 − 成本）÷ 售价"
-              />
-              <NumberField
-                label="每月营业天数"
-                value={days}
-                onChange={setDays}
-                suffix="天"
-                min={1}
-                max={31}
-              />
-              <NumberField
-                label="希望每月净赚"
-                value={targetProfit}
-                onChange={setTargetProfit}
-                suffix="元"
-                min={0}
-              />
+            <article className="app-card cost-card">
+              <div className="card-heading">
+                <div><span>支出明细</span><small>{costs.length} 项固定支出</small></div>
+              </div>
+              <div className="cost-list">
+                {costs.map((item) => (
+                  <div className="cost-row" key={item.id}>
+                    <span className="cost-dot">¥</span>
+                    <div className="cost-edit">
+                      <input
+                        className="cost-name"
+                        aria-label="成本名称"
+                        value={item.name}
+                        onChange={(event) => updateCost(item.id, { name: event.target.value })}
+                      />
+                      <span className="cost-amount">
+                        <span>¥</span>
+                        <input
+                          type="number"
+                          min="0"
+                          inputMode="decimal"
+                          aria-label={`${item.name}金额`}
+                          value={item.amount}
+                          onChange={(event) => updateCost(item.id, { amount: Number(event.target.value) })}
+                        />
+                      </span>
+                    </div>
+                    <button
+                      className="remove"
+                      aria-label={`删除${item.name}`}
+                      onClick={() => setCosts((items) => items.filter((entry) => entry.id !== item.id))}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                className="add-cost"
+                onClick={() =>
+                  setCosts((items) => [
+                    ...items,
+                    { id: Date.now(), name: "新增固定支出", amount: 0 },
+                  ])
+                }
+              >
+                ＋ 添加固定成本
+              </button>
+            </article>
+
+            <article className="tip-card">
+              <span>小提示</span>
+              <p>别忘了把装修折旧、设备折旧、软件费和证照年费换算成每月成本。</p>
+            </article>
+          </section>
+        )}
+
+        {activeTab === "pricing" && (
+          <section className="app-screen" aria-label="商品定价">
+            <div className="screen-intro">
+              <span className="screen-kicker">商品定价</span>
+              <h1>每件商品，都要赚得明白</h1>
+              <p>毛利率永远以售价为分母</p>
             </div>
-            <div className="answer-grid">
-              <article className="answer-card light">
-                <span>保本营业额 / 月</span>
-                <strong>{compactMoney(breakEven)}</strong>
-                <small>{money(fixedCost)} ÷ {grossMargin}%</small>
+
+            <div className="segmented" role="tablist" aria-label="定价计算方式">
+              <button
+                role="tab"
+                aria-selected={pricingMode === "quote"}
+                className={pricingMode === "quote" ? "active" : ""}
+                onClick={() => setPricingMode("quote")}
+              >
+                反推售价
+              </button>
+              <button
+                role="tab"
+                aria-selected={pricingMode === "margin"}
+                className={pricingMode === "margin" ? "active" : ""}
+                onClick={() => setPricingMode("margin")}
+              >
+                计算毛利率
+              </button>
+            </div>
+
+            {pricingMode === "quote" ? (
+              <article className="app-card pricing-card">
+                <div className="card-heading">
+                  <div><span>保证毛利率，反推售价</span><small>输入成本和目标毛利率</small></div>
+                  <span className="recommended">常用</span>
+                </div>
+                <div className="pricing-fields">
+                  <NumberField label="产品成本" value={productCost} onChange={setProductCost} />
+                  <NumberField
+                    label="目标毛利率"
+                    value={targetMargin}
+                    onChange={setTargetMargin}
+                    suffix="%"
+                    max={99.99}
+                  />
+                </div>
+                <div className="quote-result">
+                  <span>建议最低售价</span>
+                  <strong>{money(suggestedPrice, 2)}</strong>
+                  <small>{productCost} ÷（1 − {targetMargin}%）</small>
+                </div>
+                <button
+                  className="primary-action"
+                  onClick={() => {
+                    setSellingPrice(Number(suggestedPrice.toFixed(2)));
+                    setPricingMode("margin");
+                    notify("已应用为实际售价");
+                  }}
+                >
+                  应用这个售价
+                </button>
               </article>
-              <article className="answer-card dark">
-                <span>{targetProfit > 0 ? "目标营业额 / 月" : "保本营业额 / 天"}</span>
-                <strong>
-                  {compactMoney(targetProfit > 0 ? targetRevenue : dailyBreakEven)}
-                </strong>
-                <small>
-                  {targetProfit > 0
-                    ? `（固定成本 + ${compactMoney(targetProfit)}）÷ 毛利率`
-                    : `按 ${days} 个营业日计算`}
-                </small>
+            ) : (
+              <article className="app-card pricing-card">
+                <div className="card-heading">
+                  <div><span>已知售价，算毛利率</span><small>看看现在的价格赚多少</small></div>
+                </div>
+                <div className="pricing-fields">
+                  <NumberField label="产品成本" value={productCost} onChange={setProductCost} />
+                  <NumberField label="实际售价" value={sellingPrice} onChange={setSellingPrice} />
+                </div>
+                <div className="margin-result">
+                  <div><span>实际毛利率</span><strong>{actualMargin.toFixed(2)}%</strong></div>
+                  <div><span>单件毛利</span><strong>{money(profitPerItem, 2)}</strong></div>
+                </div>
+                <p className="inline-formula">（{sellingPrice} − {productCost}）÷ {sellingPrice} × 100%</p>
               </article>
-              {targetProfit > 0 && (
-                <article className="answer-card accent">
-                  <span>每日销售任务</span>
-                  <strong>{compactMoney(dailyTarget)}</strong>
-                  <small>目标营业额 ÷ {days} 天</small>
-                </article>
-              )}
-            </div>
-            <button className="copy-button" onClick={copySummary}>
-              复制完整测算结果
-            </button>
-          </div>
-        </div>
-      </section>
+            )}
 
-      <section className="pricing-section">
-        <div className="section-heading">
-          <span className="step">02</span>
-          <div>
-            <h2>商品定价，别把加价率当毛利率</h2>
-            <p>毛利率永远以售价为分母</p>
-          </div>
-        </div>
-        <div className="pricing-grid">
-          <article className="tool-card">
-            <div className="tool-title">
-              <span className="tool-icon">率</span>
-              <div>
-                <h3>已知售价，算毛利率</h3>
-                <p>看看现在的价格到底赚多少</p>
+            <details className="app-card advanced">
+              <summary>进一步计算净利率</summary>
+              <div className="advanced-body">
+                <NumberField label="每件销售费用" value={salesExpense} onChange={setSalesExpense} />
+                <NumberField label="税率" value={taxRate} onChange={setTaxRate} suffix="%" max={100} />
               </div>
-            </div>
-            <div className="two-fields">
-              <NumberField label="产品成本" value={productCost} onChange={setProductCost} />
-              <NumberField label="实际售价" value={sellingPrice} onChange={setSellingPrice} />
-            </div>
-            <div className="inline-answer">
-              <div>
-                <span>实际毛利率</span>
-                <strong>{actualMargin.toFixed(2)}%</strong>
-              </div>
-              <div>
-                <span>单件毛利</span>
-                <strong>{money(profitPerItem, 2)}</strong>
-              </div>
-            </div>
-            <p className="formula">
-              ({sellingPrice} − {productCost}) ÷ {sellingPrice} × 100%
-            </p>
-          </article>
+              <div className="net-result"><span>预估净利率</span><strong>{netMargin.toFixed(2)}%</strong></div>
+              <p>（售价 − 成本 − 销售费用 ×（1 − 税率））÷ 售价</p>
+            </details>
 
-          <article className="tool-card featured">
-            <div className="recommend">常用</div>
-            <div className="tool-title">
-              <span className="tool-icon">价</span>
-              <div>
-                <h3>保证毛利率，反推售价</h3>
-                <p>输入目标毛利率，得到正确报价</p>
-              </div>
-            </div>
-            <div className="two-fields">
-              <NumberField label="产品成本" value={productCost} onChange={setProductCost} />
-              <NumberField
-                label="目标毛利率"
-                value={targetMargin}
-                onChange={setTargetMargin}
-                suffix="%"
-                min={0}
-                max={99.99}
-              />
-            </div>
-            <div className="price-answer">
-              <span>建议最低售价</span>
-              <strong>{money(suggestedPrice, 2)}</strong>
-              <button onClick={() => {
-                setSellingPrice(Number(suggestedPrice.toFixed(2)));
-                notify("已应用为实际售价");
-              }}>应用此售价</button>
-            </div>
-            <p className="formula">
-              {productCost} ÷ (1 − {targetMargin}%) = {suggestedPrice.toFixed(2)}
-            </p>
-          </article>
-        </div>
+            <article className="warning-card">
+              <span>别算错</span>
+              <p>成本 100 元、售价 130 元，毛利率不是 30%，而是 <b>23.08%</b>。</p>
+            </article>
+          </section>
+        )}
 
-        <details className="advanced">
-          <summary>进一步计算净利率（含销售费用与税率）</summary>
-          <div className="advanced-body">
-            <NumberField label="每件销售费用" value={salesExpense} onChange={setSalesExpense} />
-            <NumberField label="税率" value={taxRate} onChange={setTaxRate} suffix="%" max={100} />
-            <div className="net-result">
-              <span>预估净利率</span>
-              <strong>{netMargin.toFixed(2)}%</strong>
+        {activeTab === "formula" && (
+          <section className="app-screen" aria-label="公式说明">
+            <div className="screen-intro">
+              <span className="screen-kicker">公式速查</span>
+              <h1>四条公式，开店心里有底</h1>
+              <p>点击其他底部菜单即可返回测算</p>
             </div>
-          </div>
-          <p>计算口径：（售价 − 成本 − 销售费用 ×（1 − 税率））÷ 售价</p>
-        </details>
-      </section>
 
-      <section className="formula-section" id="formula">
-        <div>
-          <span className="eyebrow">核心公式</span>
-          <h2>四条公式，开店不再心里没底</h2>
-        </div>
-        <div className="formula-cards">
-          <article><b>01</b><span>毛利率</span><strong>（售价 − 成本）÷ 售价</strong></article>
-          <article><b>02</b><span>正确报价</span><strong>成本 ÷（1 − 毛利率）</strong></article>
-          <article><b>03</b><span>保本营业额</span><strong>固定成本 ÷ 毛利率</strong></article>
-          <article><b>04</b><span>目标营业额</span><strong>（固定成本 + 目标利润）÷ 毛利率</strong></article>
-        </div>
-        <div className="example-note">
-          <span>!</span>
-          <p>
-            <strong>常见误区：</strong>成本 100 元、售价 130 元，毛利率不是 30%，
-            而是（130 − 100）÷ 130 = <b>23.08%</b>。
-          </p>
-        </div>
-      </section>
+            <div className="formula-list">
+              <article>
+                <span className="formula-number">01</span>
+                <div><small>毛利率</small><strong>（售价 − 成本）÷ 售价</strong><p>看一件商品真实能留下多少毛利</p></div>
+              </article>
+              <article>
+                <span className="formula-number">02</span>
+                <div><small>正确报价</small><strong>成本 ÷（1 − 毛利率）</strong><p>根据目标毛利率反推最低售价</p></div>
+              </article>
+              <article>
+                <span className="formula-number">03</span>
+                <div><small>保本营业额</small><strong>固定成本 ÷ 毛利率</strong><p>营业额做到这里，店铺刚好不亏</p></div>
+              </article>
+              <article>
+                <span className="formula-number">04</span>
+                <div><small>目标营业额</small><strong>（固定成本 + 目标利润）÷ 毛利率</strong><p>想赚到目标利润，需要完成的业绩</p></div>
+              </article>
+            </div>
 
-      <footer>
-        <div className="brand"><span className="brand-mark">算</span><span>开店账本</span></div>
-        <p>每一个好生意，都从算清楚开始。</p>
-        <span>测算结果仅供经营参考</span>
-      </footer>
+            <article className="example-card">
+              <span>示例</span>
+              <strong>固定成本 35 万 · 毛利率 33%</strong>
+              <div><b>月保本</b><em>¥106.06万</em></div>
+              <div><b>日保本（30天）</b><em>¥3.54万</em></div>
+            </article>
+
+            <p className="safe-note">所有计算结果保留完整精度，界面金额仅作四舍五入显示</p>
+          </section>
+        )}
+      </div>
+
+      <nav className="bottom-nav" aria-label="主导航">
+        <button className={activeTab === "home" ? "active" : ""} aria-current={activeTab === "home" ? "page" : undefined} onClick={() => goTo("home")}>
+          <span className="nav-icon">⌂</span><span>首页</span>
+        </button>
+        <button className={activeTab === "costs" ? "active" : ""} aria-current={activeTab === "costs" ? "page" : undefined} onClick={() => goTo("costs")}>
+          <span className="nav-icon">¥</span><span>成本</span>
+        </button>
+        <button className={activeTab === "pricing" ? "active" : ""} aria-current={activeTab === "pricing" ? "page" : undefined} onClick={() => goTo("pricing")}>
+          <span className="nav-icon">%</span><span>定价</span>
+        </button>
+        <button className={activeTab === "formula" ? "active" : ""} aria-current={activeTab === "formula" ? "page" : undefined} onClick={() => goTo("formula")}>
+          <span className="nav-icon fx">ƒ</span><span>公式</span>
+        </button>
+      </nav>
+
       {toast && <div className="toast" role="status">{toast}</div>}
     </main>
   );
