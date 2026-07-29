@@ -77,7 +77,7 @@ function NumberField({
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
-  const [pricingMode, setPricingMode] = useState<PricingMode>("quote");
+  const [pricingMode, setPricingMode] = useState<PricingMode>("margin");
   const [costs, setCosts] = useState<CostItem[]>(starterCosts);
   const [grossMargin, setGrossMargin] = useState(33);
   const [days, setDays] = useState(30);
@@ -378,19 +378,19 @@ export default function Home() {
             <div className="segmented" role="tablist" aria-label="定价计算方式">
               <button
                 role="tab"
-                aria-selected={pricingMode === "quote"}
-                className={pricingMode === "quote" ? "active" : ""}
-                onClick={() => setPricingMode("quote")}
-              >
-                反推售价
-              </button>
-              <button
-                role="tab"
                 aria-selected={pricingMode === "margin"}
                 className={pricingMode === "margin" ? "active" : ""}
                 onClick={() => setPricingMode("margin")}
               >
                 计算毛利率
+              </button>
+              <button
+                role="tab"
+                aria-selected={pricingMode === "quote"}
+                className={pricingMode === "quote" ? "active" : ""}
+                onClick={() => setPricingMode("quote")}
+              >
+                反推售价
               </button>
             </div>
 
