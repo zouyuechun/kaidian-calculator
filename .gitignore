@@ -41,3 +41,13 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# Private Codex workspace files (keep local only)
+/SOUL.md
+/IDENTITY.md
+/AGENTS.md
+/USER.md
+/TOOLS.md
+/HEARTBEAT.md
+/MEMORY.md
+/memory/
