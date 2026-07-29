@@ -229,25 +229,6 @@ export default function Home() {
               </div>
             </article>
 
-            <div className="metric-grid">
-              <article>
-                <span className="metric-icon mint">本</span>
-                <div><small>月固定成本</small><strong>{compactMoney(fixedCost)}</strong></div>
-              </article>
-              <article>
-                <span className="metric-icon peach">率</span>
-                <div><small>综合毛利率</small><strong>{grossMargin}%</strong></div>
-              </article>
-              <article>
-                <span className="metric-icon mint">保</span>
-                <div><small>月保本营业额</small><strong>{compactMoney(breakEven)}</strong></div>
-              </article>
-              <article>
-                <span className="metric-icon peach">目</span>
-                <div><small>月目标营业额</small><strong>{compactMoney(targetRevenue)}</strong></div>
-              </article>
-            </div>
-
             <article className="app-card parameter-card">
               <div className="card-heading">
                 <div><span>经营参数</span><small>修改后立即重新计算</small></div>
