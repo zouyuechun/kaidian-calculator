@@ -197,7 +197,7 @@ export default function Home() {
       <header className="app-header">
         <button className="brand" onClick={() => goTo("home")} aria-label="返回经营总览">
           <span className="brand-mark">算</span>
-          <span>开店账本</span>
+          <span>开店成本计算器</span>
         </button>
         <span className="save-state"><i /> 数据已保存</span>
       </header>
