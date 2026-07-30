@@ -2,6 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  calculateBusinessSummary,
+  calculatePricingSummary,
+} from "@/shared/calculations";
+
 type CostItem = { id: number; name: string; amount: number };
 type AppTab = "home" | "costs" | "pricing" | "formula";
 type PricingMode = "margin" | "quote";
@@ -133,24 +138,29 @@ export default function Home() {
     );
   }, [costs, grossMargin, days, targetProfit, productCost, sellingPrice, targetMargin, salesExpense, taxRate, loaded]);
 
-  const fixedCost = useMemo(
-    () => costs.reduce((sum, item) => sum + (Number(item.amount) || 0), 0),
-    [costs],
+  const {
+    fixedCost,
+    breakEven,
+    dailyBreakEven,
+    targetRevenue,
+    dailyTarget,
+    monthlyGoal,
+    dailyGoal,
+  } = useMemo(
+    () => calculateBusinessSummary({ costs, grossMargin, days, targetProfit }),
+    [costs, grossMargin, days, targetProfit],
   );
-  const marginRate = grossMargin / 100;
-  const breakEven = marginRate > 0 ? fixedCost / marginRate : 0;
-  const dailyBreakEven = days > 0 ? breakEven / days : 0;
-  const targetRevenue = marginRate > 0 ? (fixedCost + targetProfit) / marginRate : 0;
-  const dailyTarget = days > 0 ? targetRevenue / days : 0;
-  const monthlyGoal = targetProfit > 0 ? targetRevenue : breakEven;
-  const dailyGoal = targetProfit > 0 ? dailyTarget : dailyBreakEven;
-  const actualMargin = sellingPrice > 0 ? ((sellingPrice - productCost) / sellingPrice) * 100 : 0;
-  const suggestedPrice = targetMargin < 100 ? productCost / (1 - targetMargin / 100) : 0;
-  const profitPerItem = sellingPrice - productCost;
-  const netMargin =
-    sellingPrice > 0
-      ? ((sellingPrice - productCost - salesExpense * (1 - taxRate / 100)) / sellingPrice) * 100
-      : 0;
+  const { actualMargin, suggestedPrice, profitPerItem, netMargin } = useMemo(
+    () =>
+      calculatePricingSummary({
+        productCost,
+        sellingPrice,
+        targetMargin,
+        salesExpense,
+        taxRate,
+      }),
+    [productCost, sellingPrice, targetMargin, salesExpense, taxRate],
+  );
 
   const notify = (message: string) => {
     setToast(message);

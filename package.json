@@ -8,9 +8,11 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "build:miniapp-shared": "tsc -p tsconfig.miniprogram.json",
     "build:pages": "next build --webpack",
     "start": "vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs",
+    "test": "npm run test:calculations && npm run build && node --test tests/rendered-html.test.mjs",
+    "test:calculations": "node --experimental-strip-types --test tests/calculations.test.ts",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

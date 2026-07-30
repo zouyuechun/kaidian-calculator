@@ -1,98 +1,88 @@
-# vinext-starter
+# 开店成本计算器
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+用于计算实体店月固定成本、保本营业额、目标营业额、商品毛利率、目标售价和净利率。项目目前包含网页版和微信小程序版，并以同一套公式源码保证计算口径一致。
 
-## Prerequisites
+## 当前使用形态
+
+- 电脑本地预览：开发和修改网页。
+- [GitHub Pages 公开版](https://zouyuechun.github.io/kaidian-calculator/)：手机或电脑浏览器免登录使用。
+- [Gitee 代码镜像](https://gitee.com/zou-yuechun/kaidian-calculator)：公开保存代码，不是在线使用地址。
+- 微信小程序：使用微信开发者工具导入、预览和上传。
+- Android APK：后续开发计划，当前尚未生成安装包。
+
+## 环境要求
 
 - Node.js `>=22.13.0`
+- 微信开发者工具（运行和预览小程序时需要）
 
-## Quick Start
+首次下载代码后安装依赖：
 
 ```bash
 npm install
+```
+
+## 网页开发
+
+```bash
 npm run dev
+```
+
+然后在浏览器访问终端显示的本地地址。常用验证命令：
+
+```bash
 npm run build
+npm run build:pages
 ```
 
-This starter does not use `wrangler.jsonc`.
+## 微信小程序导入与预览
 
-## Included Shape
+项目根目录的 `project.config.json` 已经配置正式 AppID 和 `miniprogram/` 源码目录，不需要再次新建小程序项目。
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
+1. 打开微信开发者工具并使用微信扫码登录。
+2. 点击“导入项目”。
+3. “项目目录”选择本仓库根目录，也就是包含 `project.config.json` 的“开实体店计算器”文件夹；不要只选择 `miniprogram/` 子目录。
+4. 确认项目名称为“开店成本计算器”，AppID 已自动带出。
+5. 点击“导入”，进入后点击工具栏的“编译”。
+6. 需要在真机测试时点击“预览”，用有权限的微信扫码打开；也可以使用“真机调试”检查输入和本地数据保存。
 
-## Workspace Auth Headers
+如果开发者工具提示没有权限，请确认当前登录微信已经被添加为该小程序的管理员或项目成员，并确认工具中显示的 AppID 与微信公众平台中的小程序一致。
 
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
+## 网页和小程序共享公式
 
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
+公式唯一源码位于：
 
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```text
+shared/calculations.ts
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+网页会直接引用该源码；微信小程序使用由 TypeScript 生成的 CommonJS 文件：
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+```text
+miniprogram/utils/calculations.js
+```
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+每次修改公式后必须依次运行：
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+```bash
+npm run build:miniapp-shared
+npm run test:calculations
+```
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+不要直接手工修改 `miniprogram/utils/calculations.js`，否则下一次生成时会被覆盖。公式测试包含毛利率、目标售价、保本营业额、目标营业额、净利率和边界值。
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+## 安全要求
 
-## Useful Commands
+- AppID 是公开项目标识，可以保存在 `project.config.json` 中。
+- 严禁把 AppSecret、API 密钥、上传私钥、私人令牌、账号密码或证书私钥提交到 GitHub、Gitee 或任何公开仓库。
+- AppSecret 和私钥不得写入网页或小程序前端代码；需要调用敏感接口时，应保存在可信服务器或部署平台的加密环境变量中。
+- 如果秘密信息曾被误提交，应立即到对应平台撤销或重置，不能只删除最新文件，因为旧 Git 历史仍可能保留内容。
 
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## 常用命令
 
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+- `npm run dev`：启动网页本地开发。
+- `npm run build`：验证网页构建。
+- `npm run build:pages`：生成 GitHub Pages 静态文件。
+- `npm run build:miniapp-shared`：把共享公式生成到微信小程序目录。
+- `npm run test:calculations`：独立运行公式边界测试。
+- `npm test`：运行项目总测试。
+- `npm run lint`：运行静态检查。

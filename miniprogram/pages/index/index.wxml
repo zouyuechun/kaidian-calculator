@@ -1,0 +1,458 @@
+<view class="app-shell">
+  <view class="app-header">
+    <view class="brand" bindtap="goTo" data-tab="home" hover-class="tap-soft">
+      <text class="brand-mark">算</text>
+      <text class="brand-name">开店成本计算器</text>
+    </view>
+    <view class="save-state">
+      <text class="save-dot"></text>
+      <text>数据已保存</text>
+    </view>
+  </view>
+
+  <view class="app-content">
+    <!-- 首页 -->
+    <view wx:if="{{activeTab === 'home'}}" class="screen">
+      <view class="screen-intro home-intro">
+        <view>
+          <text class="screen-kicker">经营总览</text>
+          <text class="screen-title">今天的账，算清楚了吗？</text>
+        </view>
+        <text class="day-chip">按 {{days}} 天</text>
+      </view>
+
+      <view class="goal-card">
+        <view class="goal-head">
+          <text>{{targetProfit > 0 ? '今日销售任务' : '今日保本线'}}</text>
+          <view class="live-state"><text class="live-dot"></text><text>实时</text></view>
+        </view>
+        <text class="goal-value">{{metrics.dailyGoalText}}</text>
+        <text class="goal-caption">{{metrics.monthlyGoalText}} ÷ {{days}} 个营业日</text>
+        <view class="goal-divider"></view>
+        <view class="goal-grid">
+          <view class="goal-stat">
+            <text>月固定成本</text>
+            <text class="goal-stat-value">{{metrics.fixedCostText}}</text>
+          </view>
+          <view class="goal-stat">
+            <text>月保本营业额</text>
+            <text class="goal-stat-value">{{metrics.breakEvenText}}</text>
+          </view>
+          <view class="goal-stat">
+            <text>月目标净利润</text>
+            <text class="goal-stat-value">{{metrics.targetProfitText}}</text>
+          </view>
+          <view class="goal-stat">
+            <text>月目标营业额</text>
+            <text class="goal-stat-value">{{metrics.targetRevenueText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card parameter-card">
+        <view class="card-heading">
+          <view>
+            <text class="card-title">经营参数</text>
+            <text class="card-subtitle">修改后立即重新计算</text>
+          </view>
+          <text class="live-label">LIVE</text>
+        </view>
+        <view class="field-grid home-field-grid">
+          <view class="field">
+            <text class="field-label">综合毛利率</text>
+            <view class="input-shell">
+              <input
+                type="digit"
+                value="{{grossMargin}}"
+                data-field="grossMargin"
+                bindinput="onNumberInput"
+                placeholder="0"
+                cursor-spacing="24"
+              />
+              <text>%</text>
+            </view>
+          </view>
+          <view class="field">
+            <text class="field-label">营业天数</text>
+            <view class="input-shell">
+              <input
+                type="number"
+                value="{{days}}"
+                data-field="days"
+                bindinput="onNumberInput"
+                placeholder="30"
+                cursor-spacing="24"
+              />
+              <text>天</text>
+            </view>
+          </view>
+          <view class="field field-wide">
+            <text class="field-label">每月想净赚</text>
+            <view class="input-shell">
+              <text class="input-prefix">¥</text>
+              <input
+                type="digit"
+                value="{{targetProfit}}"
+                data-field="targetProfit"
+                bindinput="onNumberInput"
+                placeholder="0"
+                cursor-spacing="24"
+              />
+              <text>元</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="quick-grid">
+        <view class="quick-card" bindtap="goTo" data-tab="costs" hover-class="card-pressed">
+          <text class="quick-icon">¥</text>
+          <view class="quick-copy">
+            <text>固定成本</text>
+            <text>共 {{costs.length}} 项</text>
+          </view>
+          <text class="quick-arrow">›</text>
+        </view>
+        <view class="quick-card" bindtap="goTo" data-tab="pricing" hover-class="card-pressed">
+          <text class="quick-icon quick-icon-orange">%</text>
+          <view class="quick-copy">
+            <text>商品定价</text>
+            <text>反推正确售价</text>
+          </view>
+          <text class="quick-arrow">›</text>
+        </view>
+      </view>
+
+      <button class="primary-button" bindtap="copySummary" hover-class="primary-pressed">复制完整测算结果</button>
+      <text class="safe-note">测算仅供经营参考 · 数据只保存在当前设备</text>
+    </view>
+
+    <!-- 成本 -->
+    <view wx:elif="{{activeTab === 'costs'}}" class="screen">
+      <view class="screen-intro">
+        <text class="screen-kicker">成本管理</text>
+        <text class="screen-title">每月固定成本</text>
+        <text class="screen-description">不管有没有生意，每个月都要支付的钱</text>
+      </view>
+
+      <view class="total-banner">
+        <text>当前合计</text>
+        <text class="total-value">{{metrics.fixedCostText}}</text>
+        <text>保本营业额 {{metrics.breakEvenText}} / 月</text>
+      </view>
+
+      <view class="card cost-card">
+        <view class="card-heading">
+          <view>
+            <text class="card-title">支出明细</text>
+            <text class="card-subtitle">{{costs.length}} 项固定支出</text>
+          </view>
+        </view>
+
+        <view class="cost-list">
+          <view class="cost-row" wx:for="{{costs}}" wx:key="id">
+            <text class="cost-dot">¥</text>
+            <view class="cost-edit">
+              <input
+                class="cost-name"
+                value="{{item.name}}"
+                data-index="{{index}}"
+                bindinput="onCostNameInput"
+                placeholder="固定支出名称"
+                maxlength="18"
+                cursor-spacing="20"
+              />
+              <view class="cost-amount">
+                <text>¥</text>
+                <input
+                  type="digit"
+                  value="{{item.amount}}"
+                  data-index="{{index}}"
+                  bindinput="onCostAmountInput"
+                  placeholder="0"
+                  cursor-spacing="20"
+                />
+              </view>
+            </view>
+            <view
+              class="remove-cost"
+              data-index="{{index}}"
+              bindtap="removeCost"
+              hover-class="remove-pressed"
+              aria-label="删除{{item.name}}"
+            >×</view>
+          </view>
+        </view>
+
+        <button class="add-cost" bindtap="addCost" hover-class="add-pressed">＋ 添加固定成本</button>
+      </view>
+
+      <view class="tip-card">
+        <text>小提示</text>
+        <text>别忘了把装修折旧、设备折旧、软件费和证照年费换算成每月成本。</text>
+      </view>
+    </view>
+
+    <!-- 定价 -->
+    <view wx:elif="{{activeTab === 'pricing'}}" class="screen">
+      <view class="screen-intro">
+        <text class="screen-kicker">商品定价</text>
+        <text class="screen-title">每件商品，都要赚得明白</text>
+        <text class="screen-description">毛利率永远以售价为分母</text>
+      </view>
+
+      <view class="segmented">
+        <view
+          class="segment {{pricingMode === 'margin' ? 'segment-active' : ''}}"
+          bindtap="setPricingMode"
+          data-mode="margin"
+          hover-class="segment-pressed"
+        >计算毛利率</view>
+        <view
+          class="segment {{pricingMode === 'quote' ? 'segment-active' : ''}}"
+          bindtap="setPricingMode"
+          data-mode="quote"
+          hover-class="segment-pressed"
+        >反推售价</view>
+      </view>
+
+      <view wx:if="{{pricingMode === 'margin'}}" class="card pricing-card">
+        <view class="card-heading">
+          <view>
+            <text class="card-title">已知售价，算毛利率</text>
+            <text class="card-subtitle">看看现在的价格赚多少</text>
+          </view>
+        </view>
+        <view class="field-grid">
+          <view class="field">
+            <text class="field-label">产品成本</text>
+            <view class="input-shell">
+              <text class="input-prefix">¥</text>
+              <input
+                type="digit"
+                value="{{productCost}}"
+                data-field="productCost"
+                bindinput="onNumberInput"
+                placeholder="0"
+                cursor-spacing="24"
+              />
+              <text>元</text>
+            </view>
+          </view>
+          <view class="field">
+            <text class="field-label">实际售价</text>
+            <view class="input-shell">
+              <text class="input-prefix">¥</text>
+              <input
+                type="digit"
+                value="{{sellingPrice}}"
+                data-field="sellingPrice"
+                bindinput="onNumberInput"
+                placeholder="0"
+                cursor-spacing="24"
+              />
+              <text>元</text>
+            </view>
+          </view>
+        </view>
+        <view class="result-grid">
+          <view>
+            <text>实际毛利率</text>
+            <text class="result-value">{{metrics.actualMarginText}}</text>
+          </view>
+          <view>
+            <text>单件毛利</text>
+            <text class="result-value">{{metrics.profitPerItemText}}</text>
+          </view>
+        </view>
+        <text class="inline-formula">（售价 − 成本）÷ 售价 × 100%</text>
+      </view>
+
+      <view wx:else class="card pricing-card">
+        <view class="card-heading">
+          <view>
+            <text class="card-title">保证毛利率，反推售价</text>
+            <text class="card-subtitle">输入成本和目标毛利率</text>
+          </view>
+          <text class="recommended">常用</text>
+        </view>
+        <view class="field-grid">
+          <view class="field">
+            <text class="field-label">产品成本</text>
+            <view class="input-shell">
+              <text class="input-prefix">¥</text>
+              <input
+                type="digit"
+                value="{{productCost}}"
+                data-field="productCost"
+                bindinput="onNumberInput"
+                placeholder="0"
+                cursor-spacing="24"
+              />
+              <text>元</text>
+            </view>
+          </view>
+          <view class="field">
+            <text class="field-label">目标毛利率</text>
+            <view class="input-shell">
+              <input
+                type="digit"
+                value="{{targetMargin}}"
+                data-field="targetMargin"
+                bindinput="onNumberInput"
+                placeholder="0"
+                cursor-spacing="24"
+              />
+              <text>%</text>
+            </view>
+          </view>
+        </view>
+        <view class="quote-result">
+          <text>建议最低售价</text>
+          <text class="quote-value">{{metrics.suggestedPriceText}}</text>
+          <text>成本 ÷（1 − 目标毛利率）</text>
+        </view>
+        <text class="quote-note">按售价口径计算时，目标毛利率必须低于 100%</text>
+      </view>
+
+      <view class="card net-card">
+        <view class="card-heading">
+          <view>
+            <text class="card-title">进一步计算净利率</text>
+          </view>
+        </view>
+        <view class="field-grid">
+          <view class="field">
+            <text class="field-label">每件销售费用</text>
+            <view class="input-shell">
+              <text class="input-prefix">¥</text>
+              <input
+                type="digit"
+                value="{{salesExpense}}"
+                data-field="salesExpense"
+                bindinput="onNumberInput"
+                placeholder="0"
+                cursor-spacing="24"
+              />
+              <text>元</text>
+            </view>
+          </view>
+          <view class="field">
+            <text class="field-label">税率</text>
+            <view class="input-shell">
+              <input
+                type="digit"
+                value="{{taxRate}}"
+                data-field="taxRate"
+                bindinput="onNumberInput"
+                placeholder="0"
+                cursor-spacing="24"
+              />
+              <text>%</text>
+            </view>
+          </view>
+        </view>
+        <view class="net-result">
+          <text>预估净利率</text>
+          <text>{{metrics.netMarginText}}</text>
+        </view>
+      </view>
+
+      <view class="warning-card">
+        <text>别算错</text>
+        <text>成本 100 元、售价 130 元，毛利率不是 30%，而是 23.08%。</text>
+      </view>
+    </view>
+
+    <!-- 公式 -->
+    <view wx:elif="{{activeTab === 'formula'}}" class="screen">
+      <view class="screen-intro">
+        <text class="screen-kicker">公式速查</text>
+        <text class="screen-title">四条公式，开店心里有底</text>
+        <text class="screen-description">点击其他底部菜单即可返回测算</text>
+      </view>
+
+      <view class="formula-list">
+        <view class="formula-card">
+          <text class="formula-number">01</text>
+          <view>
+            <text class="formula-name">毛利率</text>
+            <text class="formula-main">（售价 − 成本）÷ 售价 × 100%</text>
+            <text class="formula-description">看一件商品真实能留下多少毛利</text>
+          </view>
+        </view>
+        <view class="formula-card">
+          <text class="formula-number">02</text>
+          <view>
+            <text class="formula-name">正确报价</text>
+            <text class="formula-main">成本 ÷（1 − 毛利率）</text>
+            <text class="formula-description">根据目标毛利率反推最低售价</text>
+          </view>
+        </view>
+        <view class="formula-card">
+          <text class="formula-number">03</text>
+          <view>
+            <text class="formula-name">保本营业额</text>
+            <text class="formula-main">固定成本 ÷ 毛利率</text>
+            <text class="formula-description">营业额做到这里，店铺刚好不亏</text>
+          </view>
+        </view>
+        <view class="formula-card">
+          <text class="formula-number">04</text>
+          <view>
+            <text class="formula-name">目标营业额</text>
+            <text class="formula-main">（固定成本 + 目标利润）÷ 毛利率</text>
+            <text class="formula-description">想赚到目标利润，需要完成的业绩</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="example-card">
+        <text class="example-label">示例</text>
+        <text class="example-title">固定成本 35 万 · 毛利率 33%</text>
+        <view><text>月保本</text><text>¥106.06万</text></view>
+        <view><text>日保本（30天）</text><text>¥3.54万</text></view>
+      </view>
+      <text class="safe-note">所有计算结果保留完整精度，界面金额仅作四舍五入显示</text>
+    </view>
+  </view>
+
+  <view class="bottom-nav">
+    <view
+      class="nav-item {{activeTab === 'home' ? 'nav-active' : ''}}"
+      bindtap="goTo"
+      data-tab="home"
+      hover-class="nav-pressed"
+    >
+      <text class="nav-icon">⌂</text>
+      <text>首页</text>
+    </view>
+    <view
+      class="nav-item {{activeTab === 'costs' ? 'nav-active' : ''}}"
+      bindtap="goTo"
+      data-tab="costs"
+      hover-class="nav-pressed"
+    >
+      <text class="nav-icon">¥</text>
+      <text>成本</text>
+    </view>
+    <view
+      class="nav-item {{activeTab === 'pricing' ? 'nav-active' : ''}}"
+      bindtap="goTo"
+      data-tab="pricing"
+      hover-class="nav-pressed"
+    >
+      <text class="nav-icon">%</text>
+      <text>定价</text>
+    </view>
+    <view
+      class="nav-item {{activeTab === 'formula' ? 'nav-active' : ''}}"
+      bindtap="goTo"
+      data-tab="formula"
+      hover-class="nav-pressed"
+    >
+      <text class="nav-icon nav-fx">fx</text>
+      <text>公式</text>
+    </view>
+  </view>
+</view>
