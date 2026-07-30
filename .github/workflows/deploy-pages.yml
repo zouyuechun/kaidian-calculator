@@ -30,10 +30,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Restore previous Pages static assets
+        uses: actions/cache/restore@v4
+        with:
+          path: .pages-static-cache
+          key: pages-static-v1-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            pages-static-v1-${{ runner.os }}-${{ github.ref_name }}-
+
       - name: Build static site
         run: npm run build:pages
         env:
           GITHUB_PAGES: "true"
+
+      - name: Merge previous and current Pages static assets
+        shell: bash
+        run: |
+          mkdir -p .pages-static-cache
+          cp -a out/_next/static/. .pages-static-cache/
+          rm -rf out/_next/static
+          mkdir -p out/_next/static
+          cp -a .pages-static-cache/. out/_next/static/
+
+      - name: Save current Pages static assets
+        uses: actions/cache/save@v4
+        with:
+          path: .pages-static-cache
+          key: pages-static-v1-${{ runner.os }}-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

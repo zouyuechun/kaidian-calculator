@@ -3,6 +3,55 @@ import "./globals.css";
 
 const publicAssetBasePath =
   process.env.GITHUB_PAGES === "true" ? "/kaidian-calculator" : "";
+const isGitHubPages = process.env.GITHUB_PAGES === "true";
+
+const recoverFromStalePagesCache = `
+(() => {
+  const recoveryKey = "kaidian-pages-static-recovery";
+
+  window.addEventListener(
+    "error",
+    (event) => {
+      const target = event.target;
+      const isNextStaticScript =
+        target &&
+        target.tagName === "SCRIPT" &&
+        typeof target.src === "string" &&
+        target.src.includes("/_next/static/");
+
+      if (!isNextStaticScript) return;
+
+      const freshUrl = new URL(window.location.href);
+      if (freshUrl.searchParams.has("pages-refresh")) return;
+
+      try {
+        if (sessionStorage.getItem(recoveryKey) === "refreshing") return;
+        sessionStorage.setItem(recoveryKey, "refreshing");
+      } catch {}
+
+      freshUrl.searchParams.set("pages-refresh", Date.now().toString());
+      window.location.replace(freshUrl.toString());
+    },
+    true,
+  );
+
+  window.addEventListener("load", () => {
+    try {
+      sessionStorage.removeItem(recoveryKey);
+    } catch {}
+
+    const cleanUrl = new URL(window.location.href);
+    if (cleanUrl.searchParams.has("pages-refresh")) {
+      cleanUrl.searchParams.delete("pages-refresh");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        cleanUrl.pathname + cleanUrl.search + cleanUrl.hash,
+      );
+    }
+  });
+})();
+`;
 
 export const metadata: Metadata = {
   title: "开店成本计算器｜实体店盈亏平衡与定价计算器",
@@ -35,6 +84,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
+      {isGitHubPages && (
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: recoverFromStalePagesCache }} />
+        </head>
+      )}
       <body>{children}</body>
     </html>
   );
