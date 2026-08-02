@@ -42,6 +42,9 @@ next-env.d.ts
 /outputs/
 /work/
 
+# WeChat DevTools local-only preferences
+/project.private.config.json
+
 # Private Codex workspace files (keep local only)
 /SOUL.md
 /IDENTITY.md
