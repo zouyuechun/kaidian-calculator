@@ -7,9 +7,24 @@ import {
   calculatePricingSummary,
 } from "@/shared/calculations";
 
-type CostItem = { id: number; name: string; amount: number };
+type NumericInput = number | "";
+type CostItem = { id: number; name: string; amount: NumericInput };
 type AppTab = "home" | "costs" | "pricing" | "formula";
 type PricingMode = "margin" | "quote";
+
+const parseNumericInput = (value: string): NumericInput => {
+  if (value === "") return "";
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : "";
+};
+
+const numericValue = (value: NumericInput): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const isNumericInput = (value: unknown): value is NumericInput =>
+  value === "" || (typeof value === "number" && Number.isFinite(value));
 
 const tabFromHash = (hash: string): AppTab => {
   if (hash === "#costs" || hash === "#calculator") return "costs";
@@ -53,8 +68,8 @@ function NumberField({
   hint,
 }: {
   label: string;
-  value: number;
-  onChange: (value: number) => void;
+  value: NumericInput;
+  onChange: (value: NumericInput) => void;
   suffix?: string;
   min?: number;
   max?: number;
@@ -71,7 +86,7 @@ function NumberField({
           max={max}
           step="any"
           value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
+          onChange={(event) => onChange(parseNumericInput(event.target.value))}
         />
         <span>{suffix}</span>
       </span>
@@ -84,14 +99,14 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [pricingMode, setPricingMode] = useState<PricingMode>("margin");
   const [costs, setCosts] = useState<CostItem[]>(starterCosts);
-  const [grossMargin, setGrossMargin] = useState(33);
-  const [days, setDays] = useState(30);
-  const [targetProfit, setTargetProfit] = useState(0);
-  const [productCost, setProductCost] = useState(100);
-  const [sellingPrice, setSellingPrice] = useState(130);
-  const [targetMargin, setTargetMargin] = useState(30);
-  const [salesExpense, setSalesExpense] = useState(0);
-  const [taxRate, setTaxRate] = useState(0);
+  const [grossMargin, setGrossMargin] = useState<NumericInput>(33);
+  const [days, setDays] = useState<NumericInput>(30);
+  const [targetProfit, setTargetProfit] = useState<NumericInput>(0);
+  const [productCost, setProductCost] = useState<NumericInput>(100);
+  const [sellingPrice, setSellingPrice] = useState<NumericInput>(130);
+  const [targetMargin, setTargetMargin] = useState<NumericInput>(30);
+  const [salesExpense, setSalesExpense] = useState<NumericInput>(0);
+  const [taxRate, setTaxRate] = useState<NumericInput>(0);
   const [toast, setToast] = useState("");
   const [loaded, setLoaded] = useState(false);
 
@@ -101,14 +116,14 @@ export default function Home() {
       try {
         const data = JSON.parse(saved);
         if (Array.isArray(data.costs)) setCosts(data.costs);
-        if (Number.isFinite(data.grossMargin)) setGrossMargin(data.grossMargin);
-        if (Number.isFinite(data.days)) setDays(data.days);
-        if (Number.isFinite(data.targetProfit)) setTargetProfit(data.targetProfit);
-        if (Number.isFinite(data.productCost)) setProductCost(data.productCost);
-        if (Number.isFinite(data.sellingPrice)) setSellingPrice(data.sellingPrice);
-        if (Number.isFinite(data.targetMargin)) setTargetMargin(data.targetMargin);
-        if (Number.isFinite(data.salesExpense)) setSalesExpense(data.salesExpense);
-        if (Number.isFinite(data.taxRate)) setTaxRate(data.taxRate);
+        if (isNumericInput(data.grossMargin)) setGrossMargin(data.grossMargin);
+        if (isNumericInput(data.days)) setDays(data.days);
+        if (isNumericInput(data.targetProfit)) setTargetProfit(data.targetProfit);
+        if (isNumericInput(data.productCost)) setProductCost(data.productCost);
+        if (isNumericInput(data.sellingPrice)) setSellingPrice(data.sellingPrice);
+        if (isNumericInput(data.targetMargin)) setTargetMargin(data.targetMargin);
+        if (isNumericInput(data.salesExpense)) setSalesExpense(data.salesExpense);
+        if (isNumericInput(data.taxRate)) setTaxRate(data.taxRate);
       } catch {
         // Invalid local data should not prevent the calculator from opening.
       }
@@ -138,6 +153,15 @@ export default function Home() {
     );
   }, [costs, grossMargin, days, targetProfit, productCost, sellingPrice, targetMargin, salesExpense, taxRate, loaded]);
 
+  const grossMarginNumber = numericValue(grossMargin);
+  const daysNumber = numericValue(days);
+  const targetProfitNumber = numericValue(targetProfit);
+  const productCostNumber = numericValue(productCost);
+  const sellingPriceNumber = numericValue(sellingPrice);
+  const targetMarginNumber = numericValue(targetMargin);
+  const salesExpenseNumber = numericValue(salesExpense);
+  const taxRateNumber = numericValue(taxRate);
+
   const {
     fixedCost,
     breakEven,
@@ -147,19 +171,31 @@ export default function Home() {
     monthlyGoal,
     dailyGoal,
   } = useMemo(
-    () => calculateBusinessSummary({ costs, grossMargin, days, targetProfit }),
-    [costs, grossMargin, days, targetProfit],
+    () =>
+      calculateBusinessSummary({
+        costs,
+        grossMargin: grossMarginNumber,
+        days: daysNumber,
+        targetProfit: targetProfitNumber,
+      }),
+    [costs, grossMarginNumber, daysNumber, targetProfitNumber],
   );
   const { actualMargin, suggestedPrice, profitPerItem, netMargin } = useMemo(
     () =>
       calculatePricingSummary({
-        productCost,
-        sellingPrice,
-        targetMargin,
-        salesExpense,
-        taxRate,
+        productCost: productCostNumber,
+        sellingPrice: sellingPriceNumber,
+        targetMargin: targetMarginNumber,
+        salesExpense: salesExpenseNumber,
+        taxRate: taxRateNumber,
       }),
-    [productCost, sellingPrice, targetMargin, salesExpense, taxRate],
+    [
+      productCostNumber,
+      sellingPriceNumber,
+      targetMarginNumber,
+      salesExpenseNumber,
+      taxRateNumber,
+    ],
   );
 
   const notify = (message: string) => {
@@ -179,10 +215,10 @@ export default function Home() {
   const copySummary = async () => {
     const summary = `开店测算结果
 月固定成本：${money(fixedCost)}
-综合毛利率：${grossMargin}%
+综合毛利率：${grossMarginNumber}%
 月保本营业额：${money(breakEven)}
 日保本营业额：${money(dailyBreakEven)}
-月目标利润：${money(targetProfit)}
+月目标利润：${money(targetProfitNumber)}
 月目标营业额：${money(targetRevenue)}
 日目标营业额：${money(dailyTarget)}`;
     try {
@@ -220,22 +256,22 @@ export default function Home() {
                 <span className="screen-kicker">经营总览</span>
                 <h1>今天的账，算清楚了吗？</h1>
               </div>
-              <span className="day-chip">按 {days} 天</span>
+              <span className="day-chip">按 {daysNumber} 天</span>
             </div>
 
             <article className="goal-card">
               <div className="goal-card-head">
-                <span>{targetProfit > 0 ? "今日销售任务" : "今日保本线"}</span>
+                <span>{targetProfitNumber > 0 ? "今日销售任务" : "今日保本线"}</span>
                 <b><i /> 实时</b>
               </div>
               <strong>{compactMoney(dailyGoal)}</strong>
-              <p>{compactMoney(monthlyGoal)} ÷ {days} 个营业日</p>
+              <p>{compactMoney(monthlyGoal)} ÷ {daysNumber} 个营业日</p>
               <div className="goal-divider" />
               <div className="goal-meta">
                 <span>月固定成本 <b>{compactMoney(fixedCost)}</b></span>
                 <span>月保本营业额 <b>{compactMoney(breakEven)}</b></span>
                 <span>月目标营业额 <b>{compactMoney(monthlyGoal)}</b></span>
-                <span>月目标净利润 <b>{compactMoney(targetProfit)}</b></span>
+                <span>月目标净利润 <b>{compactMoney(targetProfitNumber)}</b></span>
               </div>
             </article>
 
@@ -326,7 +362,11 @@ export default function Home() {
                           inputMode="decimal"
                           aria-label={`${item.name}金额`}
                           value={item.amount}
-                          onChange={(event) => updateCost(item.id, { amount: Number(event.target.value) })}
+                          onChange={(event) =>
+                            updateCost(item.id, {
+                              amount: parseNumericInput(event.target.value),
+                            })
+                          }
                         />
                       </span>
                     </div>
@@ -345,7 +385,7 @@ export default function Home() {
                 onClick={() =>
                   setCosts((items) => [
                     ...items,
-                    { id: Date.now(), name: "新增固定支出", amount: 0 },
+                    { id: Date.now(), name: "新增固定支出", amount: "" },
                   ])
                 }
               >
@@ -406,7 +446,7 @@ export default function Home() {
                 <div className="quote-result">
                   <span>建议最低售价</span>
                   <strong>{money(suggestedPrice, 2)}</strong>
-                  <small>{productCost} ÷（1 − {targetMargin}%）</small>
+                  <small>{productCostNumber} ÷（1 − {targetMarginNumber}%）</small>
                 </div>
                 <button
                   className="primary-action"
@@ -432,7 +472,9 @@ export default function Home() {
                   <div><span>实际毛利率</span><strong>{actualMargin.toFixed(2)}%</strong></div>
                   <div><span>单件毛利</span><strong>{money(profitPerItem, 2)}</strong></div>
                 </div>
-                <p className="inline-formula">（{sellingPrice} − {productCost}）÷ {sellingPrice} × 100%</p>
+                <p className="inline-formula">
+                  （{sellingPriceNumber} − {productCostNumber}）÷ {sellingPriceNumber} × 100%
+                </p>
               </article>
             )}
 

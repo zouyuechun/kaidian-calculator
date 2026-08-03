@@ -1,5 +1,5 @@
 export type CostAmount = {
-  amount: number;
+  amount: number | "";
 };
 
 export type BusinessSummaryInput = {

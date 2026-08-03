@@ -27,6 +27,7 @@ test("fixed costs and break-even revenue use gross margin as a percentage", () =
     { amount: 100_000 },
     { amount: 30_000 },
     { amount: 20_000 },
+    { amount: "" },
   ]);
 
   assert.equal(fixedCost, 350_000);
